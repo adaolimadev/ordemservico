@@ -2,24 +2,34 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use App\Models\User;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
 
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
-
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
-        // User::factory(10)->create();
+        // Roda os seeders de domínios fixos (Perfis e Tipos de Equipamentos)
+        $this->call([
+            PerfilUsuarioSeeder::class,
+            TipoEquipamentoSeeder::class,
+        ]);
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+        // Busca o ID do perfil Administrador
+        $adminPerfilId = DB::table('perfis_usuarios')
+            ->where('descricao', 'Administrador')
+            ->value('id');
+
+        // Cria o usuário padrão
+        User::create([
+            'name' => 'Admin do Sistema',
+            'email' => 'admin@sistema.com.br',
+            'password' => Hash::make('password123'), // Mude em produção
+            'cargo' => 'Administrador Geral',
+            'ativo' => true,
+            'perfil_acesso_id' => $adminPerfilId,
         ]);
     }
 }
