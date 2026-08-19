@@ -1,0 +1,82 @@
+Escopo Projeto OrdemServico
+
+Problema:
+-Como desenvolver uma aplicação web que permita gerenciar Ordens de Serviço de maneira centralizada, confiável e escalável,
+
+
+
+Objetivo/Solução:
+Desenvolver uma aplicação web para gerenciamento do ciclo de vida das Ordens de Serviço, permitindo que usuários autorizados:
+
+- cadastrem e consultem clientes;
+- consultem equipamentos;
+- criem Ordens de Serviço;
+- acompanhem o andamento das OS;
+- alterem o status das OS;
+- registrem informações do atendimento;
+- concluam ou cancelem ordens;
+- consultem histórico;
+- acompanhem indicadores operacionais.
+
+O sistema deverá permitir:
+
+- cadastro de usuários;
+- consulta;
+- edição;
+- ativação e desativação;
+- controle básico de acesso.
+
+Possíveis perfis:
+
+- Administrador;
+- Atendente;
+- Técnico;
+- Gestor.
+
+
+- cadastrar clientes;
+- consultar clientes;
+- editar dados;
+- ativar ou desativar clientes;
+
+A Ordem de Serviço representa a principal entidade do sistema.
+
+Prioridades:
+
+BAIXA
+MEDIA
+ALTA
+CRITICA
+
+Status:
+
+ABERTA
+EM_ANALISE
+EM_EXECUCAO
+AGUARDANDO_CLIENTE
+CONCLUIDA
+CANCELADA
+
+Regras:
+
+-Cada cliente poderá possuir diversos equipamentos.
+- equipamento deve estar associado a um cliente;
+- número de série deve ser único;
+- equipamento inativo não pode receber novas Ordens de Serviço;
+- o equipamento informado em uma OS deve pertencer ao cliente selecionado.
+- Todos os equipamentos associados a uma Ordem de Serviço devem pertencer ao mesmo cliente da OS.
+- uma OS concluída não pode voltar para aberta;
+- uma OS cancelada não pode entrar em execução;
+- uma OS já concluída não pode ser cancelada;
+- uma OS em execução pode aguardar retorno do cliente;
+- uma OS aguardando cliente pode retornar para execução
+
+Ao cadastrar uma Ordem de Serviço, o sistema deverá validar:
+
+se o cliente existe;
+se o cliente está ativo;
+se o equipamento existe;
+se o equipamento pertence ao cliente;
+se o equipamento está ativo.
+
+

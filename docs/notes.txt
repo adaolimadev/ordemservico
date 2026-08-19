@@ -1,0 +1,36 @@
+Projeto PHP Ordem de Serviço - Anotações
+
+---------------------------------------------------------------------------------------------------
+Regras de negocio
+
+-Todos os equipamentos associados a uma Ordem de Serviço devem pertencer ao mesmo cliente da OS.
+-
+
+---------------------------------------------------------------------------------------------------
+Criando o projeto: 
+
+
+
+
+Migrations
+php artisan make:migration create_perfis_usuarios_table
+php artisan make:migration alter_users_table_for_usuarios
+php artisan make:migration create_clientes_table
+php artisan make:migration create_tipos_equipamentos_table
+php artisan make:migration create_equipamentos_table
+php artisan make:migration create_ordens_servico_table
+php artisan make:migration create_ordem_servico_itens_table
+php artisan make:migration create_historicos_os_table
+
+
+Seeders
+
+
+Models:
+php artisan make:model PerfilUsuario
+php artisan make:model TipoEquipamento
+php artisan make:model Cliente
+php artisan make:model Equipamento
+php artisan make:model OrdemServico
+php artisan make:model OrdemServicoItem
+php artisan make:model HistoricoOs
