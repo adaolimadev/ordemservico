@@ -34,3 +34,10 @@ php artisan make:model Equipamento
 php artisan make:model OrdemServico
 php artisan make:model OrdemServicoItem
 php artisan make:model HistoricoOs
+
+--Controllers
+
+ php artisan make:controller Api/ClienteController --api
+ php artisan make:request StoreClienteRequest
+ php artisan make:request UpdateClienteRequest
+ php artisan make:resource ClienteResource
