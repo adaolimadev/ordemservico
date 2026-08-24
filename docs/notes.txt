@@ -41,3 +41,14 @@ php artisan make:model HistoricoOs
  php artisan make:request StoreClienteRequest
  php artisan make:request UpdateClienteRequest
  php artisan make:resource ClienteResource
+
+
+php artisan make:controller Api/TipoEquipamentoController --api
+php artisan make:request StoreTipoEquipamentoRequest
+php artisan make:request UpdateTipoEquipamentoRequest
+php artisan make:resource TipoEquipamentoResource
+
+ php artisan make:controller Api/EquipamentoController --api
+ php artisan make:request StoreEquipamentoRequest
+ php artisan make:request UpdateEquipamentoRequest
+ php artisan make:resource EquipamentoResource
