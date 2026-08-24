@@ -23,7 +23,9 @@ Route::prefix('v1')->group(function () {
     // O apiResource cria automaticamente as rotas: index, store, show, update e destroy
     Route::apiResource('clientes', ClienteController::class);
     Route::apiResource('equipamentos', EquipamentoController::class);
+    Route::post('ordens-servico/{ordens_servico}/cancelar', [OrdemServicoController::class, 'cancelar']);
     Route::apiResource('ordens-servico', OrdemServicoController::class);
+    
     
 
 });
