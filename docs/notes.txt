@@ -52,3 +52,9 @@ php artisan make:resource TipoEquipamentoResource
  php artisan make:request StoreEquipamentoRequest
  php artisan make:request UpdateEquipamentoRequest
  php artisan make:resource EquipamentoResource
+
+
+php artisan make:controller Api/OrdemServicoController --api
+php artisan make:request StoreOrdemServicoRequest
+php artisan make:request UpdateOrdemServicoRequest
+php artisan make:resource OrdemServicoResource
