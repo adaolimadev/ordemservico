@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ClienteController;
+use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\EquipamentoController;
 use App\Http\Controllers\Api\OrdemServicoController;
 use App\Http\Controllers\Api\TipoEquipamentoController;
@@ -39,9 +40,19 @@ Route::prefix('v1')
         // Tipos de Equipamento (somente leitura por ora)
         Route::get('tipos-equipamentos', [TipoEquipamentoController::class, 'index']);
 
+        // Dashboard
+        Route::get('dashboard/indicadores', [DashboardController::class, 'indicadores']);
+
         // Ordens de Serviço
-        Route::post('ordens-servico/{ordens_servico}/cancelar', [OrdemServicoController::class, 'cancelar']);
-        Route::apiResource('ordens-servico', OrdemServicoController::class);
+        // Ações dedicadas — registradas ANTES do apiResource para evitar conflito de binding
+        Route::patch('ordens-servico/{ordemServico}/status',   [OrdemServicoController::class, 'alterarStatus']);
+        Route::post ('ordens-servico/{ordemServico}/concluir', [OrdemServicoController::class, 'concluir']);
+        Route::post ('ordens-servico/{ordemServico}/cancelar', [OrdemServicoController::class, 'cancelar']);
+
+        // CRUD básico — sem update nem destroy (inativação/cancelamento via rotas dedicadas)
+        Route::apiResource('ordens-servico', OrdemServicoController::class)
+            ->parameters(['ordens-servico' => 'ordemServico'])
+            ->except(['update', 'destroy']);
 
         // ── Usuários (exclusivo para ADMINISTRADOR) ───────────────────────
         Route::middleware('can:gerenciar-usuarios')->group(function () {

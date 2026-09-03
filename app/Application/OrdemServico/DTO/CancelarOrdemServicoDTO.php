@@ -9,5 +9,6 @@ final readonly class CancelarOrdemServicoDTO
 {
     public function __construct(
         public int $usuarioId,
+        public string $motivo,
     ) {}
 }

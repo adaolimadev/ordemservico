@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Application\OrdemServico\DTO\AlterarStatusOrdemServicoDTO;
 use App\Application\OrdemServico\DTO\CancelarOrdemServicoDTO;
+use App\Application\OrdemServico\DTO\ConcluirOrdemServicoDTO;
 use App\Application\OrdemServico\DTO\CriarOrdemServicoDTO;
 use App\Enums\StatusOSEnum;
 use App\Exceptions\Domain\OrdemServicoJaCanceladaException;
@@ -34,10 +35,7 @@ class OrdemServicoService
             ]);
 
             $os->itens()->createMany(
-                array_map(
-                    fn ($id) => ['equipamento_id' => $id],
-                    $dto->equipamentoIds,
-                )
+                array_map(fn ($id) => ['equipamento_id' => $id], $dto->equipamentoIds)
             );
 
             $os->historicos()->create([
@@ -56,7 +54,8 @@ class OrdemServicoService
     */
 
     /**
-     * Altera o status de uma OS respeitando as RN06–RN09.
+     * Altera o status da OS respeitando as RN06–RN09.
+     * Rejeita CONCLUIDA e CANCELADA — use concluir() e cancelar() para isso.
      *
      * @throws TransicaoStatusInvalidaException
      */
@@ -65,9 +64,8 @@ class OrdemServicoService
         $statusAtual = $os->status;
         $novoStatus  = $dto->novoStatus;
 
-        // No-op idempotente: mesmo status, sem gravar histórico
+        // No-op idempotente: mesmo status, atualiza diagnóstico se fornecido
         if ($statusAtual === $novoStatus) {
-            // Ainda atualiza diagnóstico se fornecido
             if ($dto->diagnostico !== null) {
                 $os->update(['diagnostico' => $dto->diagnostico]);
             }
@@ -75,17 +73,12 @@ class OrdemServicoService
             return $os->load(['cliente', 'responsavel', 'itens.equipamento', 'historicos']);
         }
 
-        // Valida a transição pela máquina de estados
         if (! $statusAtual->podeTransitarPara($novoStatus)) {
             throw new TransicaoStatusInvalidaException($statusAtual, $novoStatus);
         }
 
         return DB::transaction(function () use ($os, $dto, $novoStatus) {
             $update = ['status' => $novoStatus];
-
-            if ($novoStatus->ehTerminal()) {
-                $update['data_fechamento'] = now();
-            }
 
             if ($dto->diagnostico !== null) {
                 $update['diagnostico'] = $dto->diagnostico;
@@ -103,7 +96,41 @@ class OrdemServicoService
     }
 
     /**
-     * Cancela uma OS.
+     * Conclui a OS com diagnóstico final obrigatório.
+     * Transição válida apenas a partir de EM_EXECUCAO.
+     *
+     * @throws TransicaoStatusInvalidaException
+     */
+    public function concluir(OrdemServico $os, ConcluirOrdemServicoDTO $dto): OrdemServico
+    {
+        $statusAtual = $os->status;
+
+        if ($statusAtual === StatusOSEnum::CONCLUIDA) {
+            throw new OrdemServicoJaConcluidaException();
+        }
+
+        if (! $statusAtual->podeTransitarPara(StatusOSEnum::CONCLUIDA)) {
+            throw new TransicaoStatusInvalidaException($statusAtual, StatusOSEnum::CONCLUIDA);
+        }
+
+        return DB::transaction(function () use ($os, $dto) {
+            $os->update([
+                'status'          => StatusOSEnum::CONCLUIDA,
+                'diagnostico'     => $dto->diagnostico,
+                'data_fechamento' => now(),
+            ]);
+
+            $os->historicos()->create([
+                'usuario_id' => $dto->usuarioId,
+                'status'     => StatusOSEnum::CONCLUIDA,
+            ]);
+
+            return $os->load(['cliente', 'responsavel', 'itens.equipamento', 'historicos']);
+        });
+    }
+
+    /**
+     * Cancela a OS registrando motivo obrigatório.
      *
      * @throws OrdemServicoJaConcluidaException
      * @throws OrdemServicoJaCanceladaException
@@ -119,10 +146,24 @@ class OrdemServicoService
             throw new OrdemServicoJaCanceladaException();
         }
 
-        return $this->alterarStatus($os, new AlterarStatusOrdemServicoDTO(
-            novoStatus: StatusOSEnum::CANCELADA,
-            usuarioId:  $dto->usuarioId,
-        ));
+        if (! $os->status->podeTransitarPara(StatusOSEnum::CANCELADA)) {
+            throw new TransicaoStatusInvalidaException($os->status, StatusOSEnum::CANCELADA);
+        }
+
+        return DB::transaction(function () use ($os, $dto) {
+            $os->update([
+                'status'          => StatusOSEnum::CANCELADA,
+                'data_fechamento' => now(),
+            ]);
+
+            $os->historicos()->create([
+                'usuario_id' => $dto->usuarioId,
+                'status'     => StatusOSEnum::CANCELADA,
+                'motivo'     => $dto->motivo,
+            ]);
+
+            return $os->load(['cliente', 'responsavel', 'itens.equipamento', 'historicos']);
+        });
     }
 
     /*

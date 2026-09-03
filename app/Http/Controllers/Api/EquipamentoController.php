@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Equipamento\EquipamentoIndexRequest;
 use App\Http\Requests\StoreEquipamentoRequest;
 use App\Http\Requests\UpdateEquipamentoRequest;
 use App\Http\Resources\EquipamentoResource;
@@ -12,9 +13,25 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class EquipamentoController extends Controller
 {
-    public function index(): AnonymousResourceCollection
+    public function index(EquipamentoIndexRequest $request): AnonymousResourceCollection
     {
-        $equipamentos = Equipamento::with(['cliente', 'tipoEquipamento'])->paginate(15);
+        $perPage = (int) $request->input('per_page', 15);
+
+        $equipamentos = Equipamento::query()
+            ->with(['cliente:id,nome_razao_social', 'tipoEquipamento:id,descricao'])
+            ->when(
+                $request->filled('cliente_id'),
+                fn ($q) => $q->where('cliente_id', $request->input('cliente_id'))
+            )
+            ->when(
+                $request->has('situacao'),
+                fn ($q) => $q->where('situacao', $request->boolean('situacao'))
+            )
+            ->when(
+                $request->filled('numero_serie'),
+                fn ($q) => $q->where('numero_serie', 'like', '%' . $request->input('numero_serie') . '%')
+            )
+            ->paginate($perPage);
 
         return EquipamentoResource::collection($equipamentos);
     }

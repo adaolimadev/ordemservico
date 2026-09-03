@@ -15,7 +15,7 @@ use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 /**
- * Testa que UpdateOrdemServicoRequest::toDto() constrói o DTO correto,
+ * Testa que o toDto() da rota /status constrói o DTO correto,
  * com status como Enum e usuarioId do autenticado.
  */
 class UpdateOrdemServicoRequestToDtoTest extends TestCase
@@ -27,9 +27,9 @@ class UpdateOrdemServicoRequestToDtoTest extends TestCase
         $cliente     = Cliente::factory()->create(['situacao' => true]);
         $tipo        = TipoEquipamento::factory()->create();
         $equipamento = Equipamento::factory()->create([
-            'cliente_id'         => $cliente->id,
-            'tipo_equipamento_id' => $tipo->id,
-            'situacao'           => true,
+            'cliente_id'          => $cliente->id,
+            'tipo_equipamento_id'  => $tipo->id,
+            'situacao'            => true,
         ]);
         $os = OrdemServico::factory()->create([
             'cliente_id' => $cliente->id,
@@ -50,15 +50,15 @@ class UpdateOrdemServicoRequestToDtoTest extends TestCase
         $usuario = User::factory()->create();
         $os      = $this->criarOs($usuario);
 
+        // Usa o novo endpoint dedicado /status (Spec 5)
         $response = $this->actingAs($usuario)
-            ->patchJson("/api/v1/ordens-servico/{$os->id}", [
+            ->patchJson("/api/v1/ordens-servico/{$os->id}/status", [
                 'status'      => 'EM_ANALISE',
                 'diagnostico' => 'Verificando cabo',
             ]);
 
         $response->assertOk();
 
-        // Valida que o status foi gravado e o histórico usa o autenticado
         $this->assertDatabaseHas('ordens_servico', [
             'id'     => $os->id,
             'status' => 'EM_ANALISE',
@@ -77,9 +77,8 @@ class UpdateOrdemServicoRequestToDtoTest extends TestCase
         $os      = $this->criarOs($usuario);
 
         $response = $this->actingAs($usuario)
-            ->patchJson("/api/v1/ordens-servico/{$os->id}", [
+            ->patchJson("/api/v1/ordens-servico/{$os->id}/status", [
                 'status' => 'EM_ANALISE',
-                // sem diagnostico
             ]);
 
         $response->assertOk();

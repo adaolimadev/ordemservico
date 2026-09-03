@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\PrioridadeEnum;
 use App\Enums\StatusOSEnum;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,39 +14,33 @@ class OrdemServico extends Model
 {
     use HasFactory;
 
-    // Força o Laravel a usar o nome correto da tabela, evitando erros de pluralização
-    protected $table = 'ordens_servico'; 
+    protected $table = 'ordens_servico';
 
-    // Define os campos que podem ser preenchidos em massa (Mass Assignment)
     protected $fillable = [
-        'numero', 
-        'cliente_id', 
-        'usuario_id', 
-        'descricao', 
-        'diagnostico', 
-        'prioridade', 
-        'status', 
-        'data_abertura', 
-        'data_fechamento'
+        'numero',
+        'cliente_id',
+        'usuario_id',
+        'descricao',
+        'diagnostico',
+        'prioridade',
+        'status',
+        'data_abertura',
+        'data_fechamento',
     ];
 
-    /**
-     * O método casts() garante a tipagem forte do Laravel 11/12.
-     * Ele converte automaticamente os valores do banco de dados para os nossos Enums no PHP.
-     */
     protected function casts(): array
     {
         return [
-            'prioridade' => PrioridadeEnum::class,
-            'status' => StatusOSEnum::class,
-            'data_abertura' => 'datetime',
+            'prioridade'      => PrioridadeEnum::class,
+            'status'          => StatusOSEnum::class,
+            'data_abertura'   => 'datetime',
             'data_fechamento' => 'datetime',
         ];
     }
 
     /*
     |--------------------------------------------------------------------------
-    | Relacionamentos (Foreign Keys)
+    | Relacionamentos
     |--------------------------------------------------------------------------
     */
 
@@ -56,7 +51,6 @@ class OrdemServico extends Model
 
     public function responsavel(): BelongsTo
     {
-        // O segundo parâmetro avisa ao Laravel qual é a coluna correta no banco
         return $this->belongsTo(User::class, 'usuario_id');
     }
 
@@ -68,5 +62,27 @@ class OrdemServico extends Model
     public function historicos(): HasMany
     {
         return $this->hasMany(HistoricoOs::class);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Query Scopes — Filtros (Spec 7)
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Aplica filtros combinados para a listagem de OS.
+     *
+     * @param array<string, mixed> $filtros
+     */
+    public function scopeFiltrar(Builder $query, array $filtros): Builder
+    {
+        return $query
+            ->when($filtros['status']     ?? null, fn ($q, $v) => $q->where('status', $v))
+            ->when($filtros['prioridade'] ?? null, fn ($q, $v) => $q->where('prioridade', $v))
+            ->when($filtros['cliente_id'] ?? null, fn ($q, $v) => $q->where('cliente_id', $v))
+            ->when($filtros['numero']     ?? null, fn ($q, $v) => $q->where('numero', 'like', "%{$v}%"))
+            ->when($filtros['aberta_de']  ?? null, fn ($q, $v) => $q->whereDate('data_abertura', '>=', $v))
+            ->when($filtros['aberta_ate'] ?? null, fn ($q, $v) => $q->whereDate('data_abertura', '<=', $v));
     }
 }

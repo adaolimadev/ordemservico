@@ -14,6 +14,7 @@ class HistoricoOs extends Model
         'ordem_servico_id',
         'usuario_id',
         'status',
+        'motivo',
         'data'
     ];
 

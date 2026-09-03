@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Cliente\ClienteIndexRequest;
 use App\Http\Requests\StoreClienteRequest;
 use App\Http\Requests\UpdateClienteRequest;
 use App\Http\Resources\ClienteResource;
@@ -12,9 +13,25 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class ClienteController extends Controller
 {
-    public function index(): AnonymousResourceCollection
+    public function index(ClienteIndexRequest $request): AnonymousResourceCollection
     {
-        return ClienteResource::collection(Cliente::paginate(15));
+        $perPage = (int) $request->input('per_page', 15);
+
+        $clientes = Cliente::query()
+            ->when(
+                $request->has('situacao'),
+                fn ($q) => $q->where('situacao', $request->boolean('situacao'))
+            )
+            ->when(
+                $request->filled('search'),
+                fn ($q) => $q->where(function ($q) use ($request) {
+                    $q->where('nome_razao_social', 'like', '%' . $request->input('search') . '%')
+                      ->orWhere('cpf_cnpj', 'like', '%' . $request->input('search') . '%');
+                })
+            )
+            ->paginate($perPage);
+
+        return ClienteResource::collection($clientes);
     }
 
     public function store(StoreClienteRequest $request): ClienteResource
@@ -54,7 +71,6 @@ class ClienteController extends Controller
         return new ClienteResource($cliente);
     }
 
-    // O escopo pede "ativar/desativar" — em vez de deletar, inativamos (Spec 6 terá endpoint dedicado)
     public function destroy(Cliente $cliente): JsonResponse
     {
         $cliente->update(['situacao' => false]);
