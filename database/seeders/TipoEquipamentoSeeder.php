@@ -17,6 +17,6 @@ class TipoEquipamentoSeeder extends Seeder
             ['descricao' => 'Monitor', 'created_at' => now(), 'updated_at' => now()],
         ];
 
-        DB::table('tipos_equipamentos')->insert($tipos);
+        DB::table('tipos_equipamentos')->insertOrIgnore($tipos);
     }
 }

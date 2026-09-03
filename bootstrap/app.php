@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureUsuarioAtivo;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -13,9 +14,13 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // Alias para uso nas rotas (ex: middleware('usuario.ativo'))
+        $middleware->alias([
+            'usuario.ativo' => EnsureUsuarioAtivo::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // Garante resposta JSON para todas as rotas da API
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );

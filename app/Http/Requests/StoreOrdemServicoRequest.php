@@ -20,7 +20,7 @@ class StoreOrdemServicoRequest extends FormRequest
     {
         return [
             'cliente_id' => ['required', 'integer', Rule::exists('clientes', 'id')->where('situacao', true)],
-            'usuario_id' => ['required', 'integer', 'exists:users,id'],
+            // usuario_id NÃO é aceito do payload; vem de Auth::id() no controller (Spec 1 — Req 4)
             'descricao' => ['required', 'string'],
             'prioridade' => ['required', Rule::enum(PrioridadeEnum::class)],
             

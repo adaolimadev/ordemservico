@@ -2,31 +2,77 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Enums\PerfilEnum;
 use Database\Factories\UserFactory;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['name', 'email', 'password'])]
-#[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, HasApiTokens;
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
+    protected $fillable = [
+        'name',
+        'email',
+        'password',
+        'cargo',
+        'situacao',
+        'perfil',
+        'perfil_acesso_id',
+    ];
+
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
-            'password' => 'hashed',
+            'password'          => 'hashed',
+            'situacao'          => 'boolean',
+            'perfil'            => PerfilEnum::class,
         ];
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Relacionamentos
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Perfil de acesso via tabela de referência (mantido por compatibilidade).
+     * Para autorização, prefira o cast direto em $this->perfil (PerfilEnum).
+     */
+    public function perfilAcesso(): BelongsTo
+    {
+        return $this->belongsTo(PerfilUsuario::class, 'perfil_acesso_id');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Helpers de autorização
+    |--------------------------------------------------------------------------
+    */
+
+    public function isAdministrador(): bool
+    {
+        return $this->perfil === PerfilEnum::ADMINISTRADOR;
+    }
+
+    public function isAtendente(): bool
+    {
+        return $this->perfil === PerfilEnum::ATENDENTE;
+    }
+
+    public function podeGerenciarUsuarios(): bool
+    {
+        return $this->perfil?->podeGerenciarUsuarios() ?? false;
     }
 }

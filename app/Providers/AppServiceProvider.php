@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use App\Enums\PerfilEnum;
+use App\Models\User;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -19,6 +22,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        /**
+         * Gate de autorização: somente usuários com perfil ADMINISTRADOR
+         * podem gerenciar (criar, listar, editar, ativar/desativar, alterar perfil)
+         * outros usuários do sistema.
+         */
+        Gate::define('gerenciar-usuarios', function (User $user): bool {
+            return $user->perfil === PerfilEnum::ADMINISTRADOR;
+        });
     }
 }

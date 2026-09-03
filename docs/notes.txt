@@ -58,3 +58,27 @@ php artisan make:controller Api/OrdemServicoController --api
 php artisan make:request StoreOrdemServicoRequest
 php artisan make:request UpdateOrdemServicoRequest
 php artisan make:resource OrdemServicoResource
+
+---------------------------------------------------------------------------------------------------
+Docker — Permissões de arquivo (usuário laravel uid=1000)
+
+O Dockerfile cria o usuário "laravel" com uid/gid 1000, que bate com o usuário do WSL (adaolimadev).
+O PHP-FPM master roda como root (necessário para abertura de socket), mas os workers processam
+como laravel (configurado em php-fpm.d/www.conf).
+
+IMPORTANTE: Para que arquivos criados pelo artisan pertençam ao usuário do WSL, sempre use:
+
+  docker exec --user laravel laravel_app php artisan <comando>
+
+Exemplos:
+  docker exec --user laravel laravel_app php artisan migrate
+  docker exec --user laravel laravel_app php artisan migrate:fresh --seed
+  docker exec --user laravel laravel_app php artisan make:migration nome_da_migration
+  docker exec --user laravel laravel_app php artisan make:controller Api/NomeController --api
+
+Sem o --user laravel, o artisan herda o usuário root do processo principal e os arquivos
+gerados ficam com ownership root, impedindo edição direta pelo usuário do WSL.
+
+O entrypoint em docker/entrypoint.sh faz chown do storage e bootstrap/cache em cada
+inicialização do container, garantindo que o Laravel consiga escrever logs e cache.
+---------------------------------------------------------------------------------------------------

@@ -3,12 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\OrdemServico;
 use App\Http\Requests\StoreOrdemServicoRequest;
 use App\Http\Requests\UpdateOrdemServicoRequest;
 use App\Http\Resources\OrdemServicoResource;
 use App\Services\OrdemServicoService;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class OrdemServicoController extends Controller
 {
@@ -22,13 +23,17 @@ class OrdemServicoController extends Controller
 
     public function store(StoreOrdemServicoRequest $request)
     {
-        // Passa os dados validados para o Service fazer a mágica no banco
-        $os = $this->osService->criarOrdemServico($request->validated());
-        
+        // usuario_id vem do usuário autenticado, nunca do payload (Spec 1 — Req 4)
+        $dados = array_merge($request->validated(), [
+            'usuario_id' => Auth::id(),
+        ]);
+
+        $os = $this->osService->criarOrdemServico($dados);
+
         return new OrdemServicoResource($os);
     }
 
-    public function show(OrdemServico $ordens_servico) // O Laravel infere o nome da variável pelo route name
+    public function show(OrdemServico $ordens_servico)
     {
         $ordens_servico->load(['cliente', 'responsavel', 'itens.equipamento', 'historicos']);
         return new OrdemServicoResource($ordens_servico);
@@ -36,20 +41,16 @@ class OrdemServicoController extends Controller
 
     public function cancelar(Request $request, OrdemServico $ordens_servico)
     {
-        $request->validate([
-            'usuario_id' => ['required', 'integer', 'exists:users,id']
-        ]);
-
         try {
-            $this->osService->cancelar($ordens_servico, $request->usuario_id);
-            
+            // usuario_id vem do usuário autenticado (Spec 1 — Req 4)
+            $this->osService->cancelar($ordens_servico, Auth::id());
+
             return response()->json([
-                'message' => 'Ordem de Serviço cancelada com sucesso.'
+                'message' => 'Ordem de Serviço cancelada com sucesso.',
             ]);
         } catch (\Exception $e) {
-            // Captura as exceções disparadas pelo nosso Service
             return response()->json([
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 422);
         }
     }
@@ -57,14 +58,17 @@ class OrdemServicoController extends Controller
     public function update(UpdateOrdemServicoRequest $request, OrdemServico $ordens_servico)
     {
         try {
-            $os = $this->osService->atualizar($ordens_servico, $request->validated());
+            // usuario_id vem do usuário autenticado (Spec 1 — Req 4)
+            $dados = array_merge($request->validated(), [
+                'usuario_id' => Auth::id(),
+            ]);
+
+            $os = $this->osService->atualizar($ordens_servico, $dados);
             return new OrdemServicoResource($os);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 422);
         }
     }
-    
-    
 }

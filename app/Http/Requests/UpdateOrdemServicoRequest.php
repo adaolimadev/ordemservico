@@ -16,8 +16,8 @@ class UpdateOrdemServicoRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'usuario_id' => ['required', 'integer', 'exists:users,id'],
-            'status' => ['required', Rule::enum(StatusOSEnum::class)],
+            // usuario_id NÃO é aceito do payload; vem de Auth::id() no controller (Spec 1 — Req 4)
+            'status'      => ['required', Rule::enum(StatusOSEnum::class)],
             'diagnostico' => ['nullable', 'string'],
         ];
     }
