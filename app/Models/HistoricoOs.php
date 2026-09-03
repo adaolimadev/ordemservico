@@ -13,18 +13,26 @@ class HistoricoOs extends Model
     protected $fillable = [
         'ordem_servico_id',
         'usuario_id',
-        'status',
-        'motivo',
-        'data'
+        'status_anterior',   // null na criação inicial
+        'status',            // status atual (após a transição)
+        'motivo',            // preenchido no cancelamento
+        'data',
     ];
 
     protected function casts(): array
     {
         return [
-            'status' => StatusOSEnum::class,
-            'data' => 'datetime',
+            'status_anterior' => StatusOSEnum::class,
+            'status'          => StatusOSEnum::class,
+            'data'            => 'datetime',
         ];
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Relacionamentos
+    |--------------------------------------------------------------------------
+    */
 
     public function ordemServico(): BelongsTo
     {

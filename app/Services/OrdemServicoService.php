@@ -38,9 +38,11 @@ class OrdemServicoService
                 array_map(fn ($id) => ['equipamento_id' => $id], $dto->equipamentoIds)
             );
 
+            // status_anterior = null indica criação (sem transição prévia)
             $os->historicos()->create([
-                'usuario_id' => $dto->usuarioId,
-                'status'     => StatusOSEnum::ABERTA,
+                'usuario_id'      => $dto->usuarioId,
+                'status_anterior' => null,
+                'status'          => StatusOSEnum::ABERTA,
             ]);
 
             return $os->load(['cliente', 'itens.equipamento', 'historicos']);
@@ -77,7 +79,7 @@ class OrdemServicoService
             throw new TransicaoStatusInvalidaException($statusAtual, $novoStatus);
         }
 
-        return DB::transaction(function () use ($os, $dto, $novoStatus) {
+        return DB::transaction(function () use ($os, $dto, $novoStatus, $statusAtual) {
             $update = ['status' => $novoStatus];
 
             if ($dto->diagnostico !== null) {
@@ -86,9 +88,11 @@ class OrdemServicoService
 
             $os->update($update);
 
+            // Grava par status_anterior → status para rastreabilidade completa
             $os->historicos()->create([
-                'usuario_id' => $dto->usuarioId,
-                'status'     => $novoStatus,
+                'usuario_id'      => $dto->usuarioId,
+                'status_anterior' => $statusAtual,
+                'status'          => $novoStatus,
             ]);
 
             return $os->load(['cliente', 'responsavel', 'itens.equipamento', 'historicos']);
@@ -113,7 +117,7 @@ class OrdemServicoService
             throw new TransicaoStatusInvalidaException($statusAtual, StatusOSEnum::CONCLUIDA);
         }
 
-        return DB::transaction(function () use ($os, $dto) {
+        return DB::transaction(function () use ($os, $dto, $statusAtual) {
             $os->update([
                 'status'          => StatusOSEnum::CONCLUIDA,
                 'diagnostico'     => $dto->diagnostico,
@@ -121,8 +125,9 @@ class OrdemServicoService
             ]);
 
             $os->historicos()->create([
-                'usuario_id' => $dto->usuarioId,
-                'status'     => StatusOSEnum::CONCLUIDA,
+                'usuario_id'      => $dto->usuarioId,
+                'status_anterior' => $statusAtual,
+                'status'          => StatusOSEnum::CONCLUIDA,
             ]);
 
             return $os->load(['cliente', 'responsavel', 'itens.equipamento', 'historicos']);
@@ -151,15 +156,18 @@ class OrdemServicoService
         }
 
         return DB::transaction(function () use ($os, $dto) {
+            $statusAntes = $os->status;
+
             $os->update([
                 'status'          => StatusOSEnum::CANCELADA,
                 'data_fechamento' => now(),
             ]);
 
             $os->historicos()->create([
-                'usuario_id' => $dto->usuarioId,
-                'status'     => StatusOSEnum::CANCELADA,
-                'motivo'     => $dto->motivo,
+                'usuario_id'      => $dto->usuarioId,
+                'status_anterior' => $statusAntes,
+                'status'          => StatusOSEnum::CANCELADA,
+                'motivo'          => $dto->motivo,
             ]);
 
             return $os->load(['cliente', 'responsavel', 'itens.equipamento', 'historicos']);

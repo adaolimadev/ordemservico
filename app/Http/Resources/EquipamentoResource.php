@@ -10,20 +10,19 @@ class EquipamentoResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this->id,
-            'cliente_id' => $this->cliente_id,
-            'tipo_equipamento_id' => $this->tipo_equipamento_id,
+            'id'           => $this->id,
             'numero_serie' => $this->numero_serie,
-            'marca' => $this->marca,
-            'descricao' => $this->descricao,
-            'ativo' => $this->situacao,
-            'criado_em' => $this->created_at->format('Y-m-d H:i:s'),
-            
-            // Retorna os dados das relações apenas se elas tiverem sido carregadas na consulta
+            'marca'        => $this->marca,
+            'descricao'    => $this->descricao,
+            'situacao'     => $this->situacao,   // padronizado para 'situacao' (não 'ativo')
+            'criado_em'    => $this->created_at?->format('Y-m-d H:i:s'),
+
+            // Relações carregadas sob demanda
             'cliente' => new ClienteResource($this->whenLoaded('cliente')),
-            'tipo' => $this->whenLoaded('tipoEquipamento', function () {
-                return $this->tipoEquipamento->descricao;
-            }),
+            'tipo'    => $this->whenLoaded('tipoEquipamento', fn () => [
+                'id'       => $this->tipoEquipamento->id,
+                'descricao' => $this->tipoEquipamento->descricao,
+            ]),
         ];
     }
 }

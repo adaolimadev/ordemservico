@@ -10,17 +10,17 @@ class ClienteResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this->id,
+            'id'          => $this->id,
             'tipo_pessoa' => $this->tipo_pessoa,
-            'nome' => $this->nome_razao_social,
-            'documento' => $this->cpf_cnpj,
-            'contato' => [
-                'email' => $this->email,
+            'nome'        => $this->nome_razao_social,
+            'documento'   => $this->cpf_cnpj,
+            'contato'     => [
+                'email'    => $this->email,
                 'telefone' => $this->telefone,
             ],
-            'endereco' => $this->endereco,
-            'ativo' => $this->situacao,
-            'criado_em' => $this->created_at->format('Y-m-d H:i:s'),
+            'endereco'   => $this->endereco,
+            'situacao'   => $this->situacao,    // padronizado para 'situacao' (não 'ativo')
+            'criado_em'  => $this->created_at?->format('Y-m-d H:i:s'),
         ];
     }
 }
