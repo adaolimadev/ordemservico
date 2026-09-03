@@ -3,25 +3,28 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\OrdemServico;
 use App\Http\Requests\StoreOrdemServicoRequest;
 use App\Http\Requests\UpdateOrdemServicoRequest;
 use App\Http\Resources\OrdemServicoResource;
+use App\Models\OrdemServico;
 use App\Services\OrdemServicoService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Auth;
 
 class OrdemServicoController extends Controller
 {
-    public function __construct(private OrdemServicoService $osService) {}
+    public function __construct(private readonly OrdemServicoService $osService) {}
 
-    public function index()
+    public function index(): AnonymousResourceCollection
     {
         $os = OrdemServico::with(['cliente', 'responsavel'])->paginate(15);
+
         return OrdemServicoResource::collection($os);
     }
 
-    public function store(StoreOrdemServicoRequest $request)
+    public function store(StoreOrdemServicoRequest $request): OrdemServicoResource
     {
         // usuario_id vem do usuário autenticado, nunca do payload (Spec 1 — Req 4)
         $dados = array_merge($request->validated(), [
@@ -33,42 +36,36 @@ class OrdemServicoController extends Controller
         return new OrdemServicoResource($os);
     }
 
-    public function show(OrdemServico $ordens_servico)
+    public function show(OrdemServico $ordens_servico): OrdemServicoResource
     {
         $ordens_servico->load(['cliente', 'responsavel', 'itens.equipamento', 'historicos']);
+
         return new OrdemServicoResource($ordens_servico);
     }
 
-    public function cancelar(Request $request, OrdemServico $ordens_servico)
+    /**
+     * Cancela a OS identificada por {ordens_servico}.
+     * Exceções de domínio são tratadas pelo handler central (bootstrap/app.php).
+     */
+    public function cancelar(Request $request, OrdemServico $ordens_servico): JsonResponse
     {
-        try {
-            // usuario_id vem do usuário autenticado (Spec 1 — Req 4)
-            $this->osService->cancelar($ordens_servico, Auth::id());
+        $this->osService->cancelar($ordens_servico, Auth::id());
 
-            return response()->json([
-                'message' => 'Ordem de Serviço cancelada com sucesso.',
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => $e->getMessage(),
-            ], 422);
-        }
+        return response()->json(['message' => 'Ordem de Serviço cancelada com sucesso.']);
     }
 
-    public function update(UpdateOrdemServicoRequest $request, OrdemServico $ordens_servico)
+    /**
+     * Atualiza status e/ou diagnóstico da OS.
+     * Exceções de domínio são tratadas pelo handler central (bootstrap/app.php).
+     */
+    public function update(UpdateOrdemServicoRequest $request, OrdemServico $ordens_servico): OrdemServicoResource
     {
-        try {
-            // usuario_id vem do usuário autenticado (Spec 1 — Req 4)
-            $dados = array_merge($request->validated(), [
-                'usuario_id' => Auth::id(),
-            ]);
+        $dados = array_merge($request->validated(), [
+            'usuario_id' => Auth::id(),
+        ]);
 
-            $os = $this->osService->atualizar($ordens_servico, $dados);
-            return new OrdemServicoResource($os);
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => $e->getMessage(),
-            ], 422);
-        }
+        $os = $this->osService->atualizar($ordens_servico, $dados);
+
+        return new OrdemServicoResource($os);
     }
 }

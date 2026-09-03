@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class OrdemServicoItem extends Model
 {
+    use HasFactory;
+
     // Informa o nome exato da tabela
     protected $table = 'ordem_servico_itens';
 

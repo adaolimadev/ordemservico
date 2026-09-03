@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Equipamento extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'cliente_id', 'tipo_equipamento_id', 'numero_serie', 
         'marca', 'descricao', 'situacao'

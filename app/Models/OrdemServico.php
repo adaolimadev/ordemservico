@@ -4,12 +4,15 @@ namespace App\Models;
 
 use App\Enums\PrioridadeEnum;
 use App\Enums\StatusOSEnum;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class OrdemServico extends Model
 {
+    use HasFactory;
+
     // Força o Laravel a usar o nome correto da tabela, evitando erros de pluralização
     protected $table = 'ordens_servico'; 
 
