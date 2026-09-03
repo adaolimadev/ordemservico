@@ -1,0 +1,903 @@
+openapi: 3.1.0
+info:
+  title: API de Gestão de Ordens de Serviço
+  description: |
+    API REST para gerenciamento do ciclo de vida de Ordens de Serviço (OS),
+    clientes, equipamentos e usuários.
+
+    ## Autenticação
+    A API usa **Laravel Sanctum** com tokens Bearer. Faça login em `POST /auth/login`,
+    copie o `access_token` e envie no header `Authorization: Bearer {token}` nas rotas protegidas.
+
+    ## Perfis de acesso
+    - **ADMINISTRADOR**: acesso total, incluindo gestão de usuários.
+    - **ATENDENTE**: todas as operações, exceto gestão de usuários.
+  version: 1.0.0
+  contact:
+    name: Equipe de Desenvolvimento
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Ambiente local (Docker)
+
+tags:
+  - name: Autenticação
+    description: Login, logout e dados do usuário autenticado
+  - name: Usuários
+    description: Gestão de usuários (exclusivo ADMINISTRADOR)
+  - name: Clientes
+    description: Cadastro e consulta de clientes
+  - name: Equipamentos
+    description: Cadastro e consulta de equipamentos
+  - name: Ordens de Serviço
+    description: Ciclo de vida das OS
+  - name: Dashboard
+    description: Indicadores operacionais
+
+security:
+  - bearerAuth: []
+
+paths:
+  # ─────────────────────────────── AUTH ───────────────────────────────
+  /auth/login:
+    post:
+      tags: [Autenticação]
+      summary: Autentica e emite token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email, example: admin@sistema.com.br }
+                password: { type: string, format: password, example: password123 }
+      responses:
+        '200':
+          description: Autenticado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token: { type: string, example: "1|abcdef123456" }
+                  token_type: { type: string, example: Bearer }
+                  user: { $ref: '#/components/schemas/UsuarioResumo' }
+        '401': { $ref: '#/components/responses/CredenciaisInvalidas' }
+        '403': { $ref: '#/components/responses/UsuarioDesativado' }
+        '422': { $ref: '#/components/responses/ErroValidacao' }
+
+  /auth/logout:
+    post:
+      tags: [Autenticação]
+      summary: Revoga o token atual
+      responses:
+        '200':
+          description: Logout realizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: Logout realizado com sucesso. }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+
+  /auth/me:
+    get:
+      tags: [Autenticação]
+      summary: Retorna o usuário autenticado
+      responses:
+        '200':
+          description: Dados do usuário
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UsuarioResumo' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+
+  # ─────────────────────────────── USUÁRIOS ───────────────────────────
+  /usuarios:
+    get:
+      tags: [Usuários]
+      summary: Lista usuários (ADMINISTRADOR)
+      parameters:
+        - { $ref: '#/components/parameters/PerPage' }
+        - { $ref: '#/components/parameters/Page' }
+      responses:
+        '200':
+          description: Lista paginada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Usuario' }
+                  links: { $ref: '#/components/schemas/PaginationLinks' }
+                  meta: { $ref: '#/components/schemas/PaginationMeta' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/SemPermissao' }
+    post:
+      tags: [Usuários]
+      summary: Cria usuário (ADMINISTRADOR)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UsuarioInput' }
+      responses:
+        '201':
+          description: Usuário criado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Usuario' }
+        '403': { $ref: '#/components/responses/SemPermissao' }
+        '422': { $ref: '#/components/responses/ErroValidacao' }
+
+  /usuarios/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+    get:
+      tags: [Usuários]
+      summary: Detalhes do usuário (ADMINISTRADOR)
+      responses:
+        '200':
+          description: Usuário
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Usuario' }
+        '403': { $ref: '#/components/responses/SemPermissao' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+    put:
+      tags: [Usuários]
+      summary: Atualiza usuário (ADMINISTRADOR)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                email: { type: string, format: email }
+                password: { type: string, format: password }
+                cargo: { type: string, nullable: true }
+      responses:
+        '200':
+          description: Usuário atualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Usuario' }
+        '403': { $ref: '#/components/responses/SemPermissao' }
+        '422': { $ref: '#/components/responses/ErroValidacao' }
+    delete:
+      tags: [Usuários]
+      summary: Desativa usuário (ADMINISTRADOR)
+      responses:
+        '200':
+          description: Usuário desativado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: Usuário desativado com sucesso. }
+        '403': { $ref: '#/components/responses/SemPermissao' }
+
+  /usuarios/{id}/situacao:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+    patch:
+      tags: [Usuários]
+      summary: Ativa ou desativa usuário (ADMINISTRADOR)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [situacao]
+              properties:
+                situacao: { type: boolean, example: false }
+      responses:
+        '200':
+          description: Situação alterada
+        '403': { $ref: '#/components/responses/SemPermissao' }
+        '422':
+          description: Auto-desativação bloqueada ou validação
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErroMensagem' }
+
+  /usuarios/{id}/perfil:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+    patch:
+      tags: [Usuários]
+      summary: Altera o perfil do usuário (ADMINISTRADOR)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [perfil]
+              properties:
+                perfil: { $ref: '#/components/schemas/PerfilEnum' }
+      responses:
+        '200':
+          description: Perfil alterado
+        '403': { $ref: '#/components/responses/SemPermissao' }
+        '422': { $ref: '#/components/responses/ErroValidacao' }
+
+  # ─────────────────────────────── CLIENTES ───────────────────────────
+  /clientes:
+    get:
+      tags: [Clientes]
+      summary: Lista clientes
+      parameters:
+        - name: search
+          in: query
+          schema: { type: string }
+          description: Busca em nome/razão social ou documento
+        - name: situacao
+          in: query
+          schema: { type: boolean }
+        - { $ref: '#/components/parameters/PerPage' }
+        - { $ref: '#/components/parameters/Page' }
+      responses:
+        '200':
+          description: Lista paginada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Cliente' }
+                  links: { $ref: '#/components/schemas/PaginationLinks' }
+                  meta: { $ref: '#/components/schemas/PaginationMeta' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+    post:
+      tags: [Clientes]
+      summary: Cria cliente
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ClienteInput' }
+      responses:
+        '201':
+          description: Cliente criado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Cliente' }
+        '422': { $ref: '#/components/responses/ErroValidacao' }
+
+  /clientes/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+    get:
+      tags: [Clientes]
+      summary: Detalhes do cliente
+      responses:
+        '200':
+          description: Cliente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Cliente' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+    put:
+      tags: [Clientes]
+      summary: Atualiza cliente
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ClienteInput' }
+      responses:
+        '200':
+          description: Cliente atualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Cliente' }
+        '422': { $ref: '#/components/responses/ErroValidacao' }
+    delete:
+      tags: [Clientes]
+      summary: Desativa cliente (soft delete lógico)
+      responses:
+        '200':
+          description: Cliente desativado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: Cliente desativado com sucesso. }
+
+  # ─────────────────────────────── EQUIPAMENTOS ───────────────────────
+  /equipamentos:
+    get:
+      tags: [Equipamentos]
+      summary: Lista equipamentos
+      parameters:
+        - name: cliente_id
+          in: query
+          schema: { type: integer }
+        - name: situacao
+          in: query
+          schema: { type: boolean }
+        - name: numero_serie
+          in: query
+          schema: { type: string }
+          description: Busca parcial por número de série
+        - { $ref: '#/components/parameters/PerPage' }
+        - { $ref: '#/components/parameters/Page' }
+      responses:
+        '200':
+          description: Lista paginada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Equipamento' }
+                  links: { $ref: '#/components/schemas/PaginationLinks' }
+                  meta: { $ref: '#/components/schemas/PaginationMeta' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+    post:
+      tags: [Equipamentos]
+      summary: Cria equipamento
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EquipamentoInput' }
+      responses:
+        '201':
+          description: Equipamento criado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Equipamento' }
+        '422': { $ref: '#/components/responses/ErroValidacao' }
+
+  /equipamentos/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+    get:
+      tags: [Equipamentos]
+      summary: Detalhes do equipamento
+      responses:
+        '200':
+          description: Equipamento
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Equipamento' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+    put:
+      tags: [Equipamentos]
+      summary: Atualiza equipamento
+      description: |
+        Não é permitido trocar o `cliente_id` de um equipamento que possua OS ativa (RN05).
+        O `numero_serie` deve ser único no sistema (RN03).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EquipamentoInput' }
+      responses:
+        '200':
+          description: Equipamento atualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Equipamento' }
+        '422': { $ref: '#/components/responses/ErroValidacao' }
+    delete:
+      tags: [Equipamentos]
+      summary: Desativa equipamento
+      responses:
+        '200':
+          description: Equipamento desativado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: Equipamento desativado com sucesso. }
+
+  # ─────────────────────────────── ORDENS DE SERVIÇO ──────────────────
+  /ordens-servico:
+    get:
+      tags: [Ordens de Serviço]
+      summary: Lista Ordens de Serviço
+      parameters:
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/StatusEnum' }
+        - name: prioridade
+          in: query
+          schema: { $ref: '#/components/schemas/PrioridadeEnum' }
+        - name: cliente_id
+          in: query
+          schema: { type: integer }
+        - name: numero
+          in: query
+          schema: { type: string }
+        - name: aberta_de
+          in: query
+          schema: { type: string, format: date }
+        - name: aberta_ate
+          in: query
+          schema: { type: string, format: date }
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [numero, -numero, data_abertura, -data_abertura, data_fechamento, -data_fechamento, prioridade, -prioridade, status, -status]
+          description: Campo de ordenação (prefixe com - para descendente)
+        - { $ref: '#/components/parameters/PerPage' }
+        - { $ref: '#/components/parameters/Page' }
+      responses:
+        '200':
+          description: Lista paginada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/OrdemServico' }
+                  links: { $ref: '#/components/schemas/PaginationLinks' }
+                  meta: { $ref: '#/components/schemas/PaginationMeta' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '422': { $ref: '#/components/responses/ErroValidacao' }
+    post:
+      tags: [Ordens de Serviço]
+      summary: Abre nova Ordem de Serviço
+      description: |
+        O `usuario_id` é sempre obtido do usuário autenticado (nunca do payload).
+        Todos os equipamentos devem pertencer ao cliente informado, estar ativos
+        e não possuir OS em andamento (RN04, RN05, RN10).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OrdemServicoInput' }
+      responses:
+        '201':
+          description: OS criada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/OrdemServico' }
+        '422': { $ref: '#/components/responses/ErroValidacao' }
+
+  /ordens-servico/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+    get:
+      tags: [Ordens de Serviço]
+      summary: Detalhes completos da OS
+      responses:
+        '200':
+          description: OS com cliente, responsável, itens e histórico
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/OrdemServicoCompleta' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+
+  /ordens-servico/{id}/status:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+    patch:
+      tags: [Ordens de Serviço]
+      summary: Altera status (fluxo intermediário)
+      description: |
+        Aplica uma transição respeitando a máquina de estados (RN06–RN09).
+        **CONCLUIDA** e **CANCELADA** são rejeitadas aqui — use `/concluir` e `/cancelar`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [ABERTA, EM_ANALISE, EM_EXECUCAO, AGUARDANDO_CLIENTE]
+                diagnostico: { type: string, nullable: true }
+      responses:
+        '200':
+          description: Status alterado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/OrdemServico' }
+        '422':
+          description: Transição inválida ou status proibido nesta rota
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErroDominio' }
+
+  /ordens-servico/{id}/concluir:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+    post:
+      tags: [Ordens de Serviço]
+      summary: Conclui a OS
+      description: Válido apenas a partir de EM_EXECUCAO. Diagnóstico obrigatório.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [diagnostico]
+              properties:
+                diagnostico: { type: string, minLength: 3, example: "Cabo de força substituído." }
+      responses:
+        '200':
+          description: OS concluída
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/OrdemServico' }
+        '422':
+          description: Transição inválida ou OS já concluída
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErroDominio' }
+
+  /ordens-servico/{id}/cancelar:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+    post:
+      tags: [Ordens de Serviço]
+      summary: Cancela a OS
+      description: Motivo obrigatório. OS concluída ou já cancelada não pode ser cancelada (RN07).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [motivo]
+              properties:
+                motivo: { type: string, minLength: 3, example: "Cliente desistiu do serviço." }
+      responses:
+        '200':
+          description: OS cancelada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: Ordem de Serviço cancelada com sucesso. }
+        '422':
+          description: OS já concluída ou já cancelada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErroDominio' }
+
+  # ─────────────────────────────── DASHBOARD ──────────────────────────
+  /dashboard/indicadores:
+    get:
+      tags: [Dashboard]
+      summary: Indicadores operacionais
+      responses:
+        '200':
+          description: Contagens por status e concluídas no mês
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  por_status:
+                    type: object
+                    additionalProperties: { type: integer }
+                    example:
+                      ABERTA: 5
+                      EM_ANALISE: 3
+                      EM_EXECUCAO: 8
+                      AGUARDANDO_CLIENTE: 2
+                      CONCLUIDA: 42
+                      CANCELADA: 1
+                  concluidas_no_mes: { type: integer, example: 12 }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Sanctum Token
+
+  parameters:
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer }
+    PerPage:
+      name: per_page
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 15 }
+      description: Itens por página (1 a 100)
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+
+  schemas:
+    PerfilEnum:
+      type: string
+      enum: [ADMINISTRADOR, ATENDENTE]
+    StatusEnum:
+      type: string
+      enum: [ABERTA, EM_ANALISE, EM_EXECUCAO, AGUARDANDO_CLIENTE, CONCLUIDA, CANCELADA]
+    PrioridadeEnum:
+      type: string
+      enum: [BAIXA, MEDIA, ALTA, CRITICA]
+
+    UsuarioResumo:
+      type: object
+      properties:
+        id: { type: integer, example: 1 }
+        name: { type: string, example: Admin do Sistema }
+        email: { type: string, format: email }
+        cargo: { type: string, nullable: true }
+        perfil: { $ref: '#/components/schemas/PerfilEnum' }
+        situacao: { type: boolean }
+
+    Usuario:
+      allOf:
+        - { $ref: '#/components/schemas/UsuarioResumo' }
+
+    UsuarioInput:
+      type: object
+      required: [name, email, password, perfil]
+      properties:
+        name: { type: string, example: João Silva }
+        email: { type: string, format: email, example: joao@empresa.com }
+        password: { type: string, format: password, minLength: 8, example: MinhaSenh4 }
+        cargo: { type: string, nullable: true, example: Atendente Sr. }
+        perfil: { $ref: '#/components/schemas/PerfilEnum' }
+        situacao: { type: boolean, default: true }
+
+    Cliente:
+      type: object
+      properties:
+        id: { type: integer }
+        tipo_pessoa: { type: string, enum: [F, J] }
+        nome: { type: string, example: Acme Ltda }
+        documento: { type: string, example: "12345678000195" }
+        contato:
+          type: object
+          properties:
+            email: { type: string, nullable: true }
+            telefone: { type: string, nullable: true }
+        endereco: { type: string, nullable: true }
+        situacao: { type: boolean }
+        criado_em: { type: string, example: "2026-09-03 12:00:00" }
+
+    ClienteInput:
+      type: object
+      required: [tipo_pessoa, nome_razao_social, cpf_cnpj]
+      properties:
+        tipo_pessoa: { type: string, enum: [F, J], example: J }
+        nome_razao_social: { type: string, example: Acme Ltda }
+        cpf_cnpj: { type: string, example: "12345678000195" }
+        email: { type: string, format: email, nullable: true }
+        telefone: { type: string, nullable: true }
+        endereco: { type: string, nullable: true }
+        situacao: { type: boolean, default: true }
+
+    Equipamento:
+      type: object
+      properties:
+        id: { type: integer }
+        numero_serie: { type: string, example: SN-001 }
+        marca: { type: string, example: Dell }
+        descricao: { type: string }
+        situacao: { type: boolean }
+        criado_em: { type: string, example: "2026-09-03 12:00:00" }
+        cliente: { $ref: '#/components/schemas/Cliente' }
+        tipo:
+          type: object
+          properties:
+            id: { type: integer }
+            descricao: { type: string, example: Notebook }
+
+    EquipamentoInput:
+      type: object
+      required: [cliente_id, tipo_equipamento_id, numero_serie, marca, descricao]
+      properties:
+        cliente_id: { type: integer, example: 1 }
+        tipo_equipamento_id: { type: integer, example: 2 }
+        numero_serie: { type: string, example: SN-001 }
+        marca: { type: string, example: Dell }
+        descricao: { type: string, example: Notebook i7 16GB }
+        situacao: { type: boolean, default: true }
+
+    HistoricoOs:
+      type: object
+      properties:
+        id: { type: integer }
+        status_anterior:
+          oneOf:
+            - { $ref: '#/components/schemas/StatusEnum' }
+            - { type: 'null' }
+        status: { $ref: '#/components/schemas/StatusEnum' }
+        motivo: { type: string, nullable: true }
+        data: { type: string, example: "2026-09-03 12:00:00" }
+        usuario:
+          type: object
+          nullable: true
+          properties:
+            id: { type: integer }
+            name: { type: string }
+
+    OrdemServico:
+      type: object
+      properties:
+        id: { type: integer }
+        numero: { type: string, example: OS-20260903-0001 }
+        status: { $ref: '#/components/schemas/StatusEnum' }
+        prioridade: { $ref: '#/components/schemas/PrioridadeEnum' }
+        descricao: { type: string }
+        diagnostico: { type: string, nullable: true }
+        data_abertura: { type: string, example: "2026-09-03 12:00:00" }
+        data_fechamento: { type: string, nullable: true }
+        cliente: { $ref: '#/components/schemas/Cliente' }
+
+    OrdemServicoCompleta:
+      allOf:
+        - { $ref: '#/components/schemas/OrdemServico' }
+        - type: object
+          properties:
+            responsavel:
+              type: object
+              properties:
+                id: { type: integer }
+                name: { type: string }
+            itens:
+              type: array
+              items:
+                type: object
+                properties:
+                  id: { type: integer }
+                  equipamento: { $ref: '#/components/schemas/Equipamento' }
+            historicos:
+              type: array
+              items: { $ref: '#/components/schemas/HistoricoOs' }
+
+    OrdemServicoInput:
+      type: object
+      required: [cliente_id, descricao, prioridade, equipamentos]
+      properties:
+        cliente_id: { type: integer, example: 1 }
+        descricao: { type: string, example: Notebook não liga }
+        prioridade: { $ref: '#/components/schemas/PrioridadeEnum' }
+        equipamentos:
+          type: array
+          items: { type: integer }
+          minItems: 1
+          example: [10, 20]
+
+    PaginationLinks:
+      type: object
+      properties:
+        first: { type: string }
+        last: { type: string }
+        prev: { type: string, nullable: true }
+        next: { type: string, nullable: true }
+
+    PaginationMeta:
+      type: object
+      properties:
+        current_page: { type: integer }
+        from: { type: integer, nullable: true }
+        last_page: { type: integer }
+        per_page: { type: integer }
+        to: { type: integer, nullable: true }
+        total: { type: integer }
+
+    ErroMensagem:
+      type: object
+      properties:
+        message: { type: string }
+
+    ErroDominio:
+      type: object
+      properties:
+        message: { type: string, example: "Transição inválida: ABERTA → CONCLUIDA." }
+        code: { type: string, example: TRANSICAO_STATUS_INVALIDA }
+
+    ErroValidacaoBody:
+      type: object
+      properties:
+        message: { type: string, example: The given data was invalid. }
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items: { type: string }
+
+  responses:
+    NaoAutenticado:
+      description: Token ausente ou inválido
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErroMensagem' }
+          example: { message: Unauthenticated. }
+    UsuarioDesativado:
+      description: Conta desativada
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErroMensagem' }
+          example: { message: "Sua conta está desativada. Entre em contato com o administrador." }
+    CredenciaisInvalidas:
+      description: Credenciais inválidas
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErroMensagem' }
+          example: { message: Credenciais inválidas. }
+    SemPermissao:
+      description: Perfil sem permissão para a ação
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErroMensagem' }
+          example: { message: This action is unauthorized. }
+    NaoEncontrado:
+      description: Recurso não encontrado
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErroDominio' }
+    ErroValidacao:
+      description: Erro de validação
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErroValidacaoBody' }
