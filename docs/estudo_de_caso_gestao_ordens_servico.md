@@ -78,12 +78,17 @@ O sistema deverá permitir:
 - ativação e desativação;
 - controle básico de acesso.
 
-Possíveis perfis:
+Perfis do sistema (exatamente dois):
 
-- Administrador;
-- Atendente;
-- Técnico;
-- Gestor.
+- **Administrador** — acesso total ao sistema, incluindo o gerenciamento de usuários.
+- **Atendente** — acesso a todas as funcionalidades operacionais (Clientes, Equipamentos, Ordens de Serviço, Dashboard), sem permissão para gerenciar usuários.
+
+Regras:
+
+- apenas o Administrador pode criar, listar, editar, ativar/desativar ou alterar o perfil de outros usuários;
+- o Atendente pode consumir todos os demais endpoints do sistema sem restrição adicional;
+- o Atendente pode acessar apenas os próprios dados (via endpoint "usuário atual") e realizar login/logout;
+- um Administrador não pode desativar a si mesmo.
 
 ---
 

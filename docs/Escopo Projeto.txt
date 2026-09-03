@@ -6,11 +6,21 @@ Objetivo: Desenvolver uma aplicação web para o gerenciamento completo do ciclo
 
 
 2. Perfis de Acesso (Atores)
-O sistema contará com controle básico de acesso dividido nos seguintes perfis:
+O sistema contará com controle básico de acesso dividido em exatamente dois perfis:
+
 Administrador
+- Acesso total ao sistema, incluindo o gerenciamento de usuários (criar, listar, editar, ativar/desativar e alterar perfil de qualquer usuário).
+
 Atendente
-Técnico
-Gestor
+- Acesso a todas as funcionalidades operacionais do sistema (Clientes, Equipamentos, Ordens de Serviço, Dashboard).
+- NÃO possui acesso ao gerenciamento de usuários.
+- Pode acessar apenas os próprios dados (via endpoint de "usuário atual") e realizar login/logout.
+
+Regras de perfil:
+RN-PERFIL-01: O sistema deve possuir apenas dois perfis: ADMINISTRADOR e ATENDENTE.
+RN-PERFIL-02: Apenas o perfil ADMINISTRADOR pode acessar os endpoints de gerenciamento de usuários (criar, listar, ver, editar, ativar/desativar, alterar perfil).
+RN-PERFIL-03: O perfil ATENDENTE pode executar todas as demais operações do sistema sem restrição adicional.
+RN-PERFIL-04: Um Administrador não pode desativar a si mesmo, para evitar bloqueio total do sistema.
 
 
 3. Requisitos Funcionais (RF)
