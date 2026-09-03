@@ -2,6 +2,9 @@
 
 namespace App\Services;
 
+use App\Application\OrdemServico\DTO\AlterarStatusOrdemServicoDTO;
+use App\Application\OrdemServico\DTO\CancelarOrdemServicoDTO;
+use App\Application\OrdemServico\DTO\CriarOrdemServicoDTO;
 use App\Enums\StatusOSEnum;
 use App\Exceptions\Domain\OrdemServicoJaCanceladaException;
 use App\Exceptions\Domain\OrdemServicoJaConcluidaException;
@@ -17,32 +20,28 @@ class OrdemServicoService
     |--------------------------------------------------------------------------
     */
 
-    public function criarOrdemServico(array $dados): OrdemServico
+    public function criarOrdemServico(CriarOrdemServicoDTO $dto): OrdemServico
     {
-        return DB::transaction(function () use ($dados) {
-            // 1. Cria a OS principal
+        return DB::transaction(function () use ($dto) {
             $os = OrdemServico::create([
                 'numero'        => $this->gerarNumeroOS(),
-                'cliente_id'    => $dados['cliente_id'],
-                'usuario_id'    => $dados['usuario_id'],
-                'descricao'     => $dados['descricao'],
-                'prioridade'    => $dados['prioridade'],
+                'cliente_id'    => $dto->clienteId,
+                'usuario_id'    => $dto->usuarioId,
+                'descricao'     => $dto->descricao,
+                'prioridade'    => $dto->prioridade,
                 'status'        => StatusOSEnum::ABERTA,
-                // Preenchido explicitamente para não depender do default do banco (Spec 2 — Req 5)
                 'data_abertura' => now(),
             ]);
 
-            // 2. Adiciona os itens (equipamentos)
             $os->itens()->createMany(
                 array_map(
                     fn ($id) => ['equipamento_id' => $id],
-                    $dados['equipamentos'],
+                    $dto->equipamentoIds,
                 )
             );
 
-            // 3. Registra o histórico inicial
             $os->historicos()->create([
-                'usuario_id' => $dados['usuario_id'],
+                'usuario_id' => $dto->usuarioId,
                 'status'     => StatusOSEnum::ABERTA,
             ]);
 
@@ -57,23 +56,23 @@ class OrdemServicoService
     */
 
     /**
-     * Altera o status de uma OS respeitando a máquina de estados (RN06–RN09).
-     *
-     * - Idempotente: mesmo status → no-op sem gravar histórico.
-     * - Valida a transição via StatusOSEnum::podeTransitarPara.
-     * - Preenche data_fechamento quando o destino é terminal.
+     * Altera o status de uma OS respeitando as RN06–RN09.
      *
      * @throws TransicaoStatusInvalidaException
-     * @throws OrdemServicoJaConcluidaException
-     * @throws OrdemServicoJaCanceladaException
      */
-    public function alterarStatus(OrdemServico $os, StatusOSEnum $novoStatus, int $usuarioId): OrdemServico
+    public function alterarStatus(OrdemServico $os, AlterarStatusOrdemServicoDTO $dto): OrdemServico
     {
         $statusAtual = $os->status;
+        $novoStatus  = $dto->novoStatus;
 
         // No-op idempotente: mesmo status, sem gravar histórico
         if ($statusAtual === $novoStatus) {
-            return $os;
+            // Ainda atualiza diagnóstico se fornecido
+            if ($dto->diagnostico !== null) {
+                $os->update(['diagnostico' => $dto->diagnostico]);
+            }
+
+            return $os->load(['cliente', 'responsavel', 'itens.equipamento', 'historicos']);
         }
 
         // Valida a transição pela máquina de estados
@@ -81,18 +80,21 @@ class OrdemServicoService
             throw new TransicaoStatusInvalidaException($statusAtual, $novoStatus);
         }
 
-        return DB::transaction(function () use ($os, $novoStatus, $usuarioId) {
+        return DB::transaction(function () use ($os, $dto, $novoStatus) {
             $update = ['status' => $novoStatus];
 
-            // Estados terminais: registra o fechamento
             if ($novoStatus->ehTerminal()) {
                 $update['data_fechamento'] = now();
+            }
+
+            if ($dto->diagnostico !== null) {
+                $update['diagnostico'] = $dto->diagnostico;
             }
 
             $os->update($update);
 
             $os->historicos()->create([
-                'usuario_id' => $usuarioId,
+                'usuario_id' => $dto->usuarioId,
                 'status'     => $novoStatus,
             ]);
 
@@ -102,15 +104,13 @@ class OrdemServicoService
 
     /**
      * Cancela uma OS.
-     * Atalho semântico sobre alterarStatus — mantém regras de negócio centralizadas.
      *
      * @throws OrdemServicoJaConcluidaException
      * @throws OrdemServicoJaCanceladaException
      * @throws TransicaoStatusInvalidaException
      */
-    public function cancelar(OrdemServico $os, int $usuarioId): OrdemServico
+    public function cancelar(OrdemServico $os, CancelarOrdemServicoDTO $dto): OrdemServico
     {
-        // Exceções semânticas antes da validação genérica para mensagens melhores
         if ($os->status === StatusOSEnum::CONCLUIDA) {
             throw new OrdemServicoJaConcluidaException();
         }
@@ -119,30 +119,10 @@ class OrdemServicoService
             throw new OrdemServicoJaCanceladaException();
         }
 
-        return $this->alterarStatus($os, StatusOSEnum::CANCELADA, $usuarioId);
-    }
-
-    /**
-     * Atualiza diagnóstico e/ou status de uma OS.
-     * Delegado à máquina de estados quando o status muda.
-     *
-     * @throws TransicaoStatusInvalidaException
-     * @throws OrdemServicoJaConcluidaException
-     * @throws OrdemServicoJaCanceladaException
-     */
-    public function atualizar(OrdemServico $os, array $dados): OrdemServico
-    {
-        $novoStatus = StatusOSEnum::from($dados['status']);
-
-        // Delega a transição para o método dedicado
-        $os = $this->alterarStatus($os, $novoStatus, $dados['usuario_id']);
-
-        // Atualiza diagnóstico se fornecido
-        if (array_key_exists('diagnostico', $dados) && $dados['diagnostico'] !== null) {
-            $os->update(['diagnostico' => $dados['diagnostico']]);
-        }
-
-        return $os->load(['cliente', 'responsavel', 'itens.equipamento', 'historicos']);
+        return $this->alterarStatus($os, new AlterarStatusOrdemServicoDTO(
+            novoStatus: StatusOSEnum::CANCELADA,
+            usuarioId:  $dto->usuarioId,
+        ));
     }
 
     /*
